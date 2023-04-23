@@ -56,6 +56,7 @@ func main() {
 			select {
 			case <-tick:
 				flowChannel <- 1
+				log.Info("令牌桶已放行,当前容量:", len(flowChannel))
 			}
 		}
 	}()
