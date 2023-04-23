@@ -51,7 +51,7 @@ func main() {
 		MaxAge: 30 * time.Minute,
 	}))
 	go func() {
-		tick := time.Tick(10 * time.Second)
+		tick := time.Tick(5 * time.Second)
 		for {
 			select {
 			case <-tick:
@@ -78,16 +78,18 @@ func main() {
 		queue := make(chan string)
 		select {
 		case <-flowChannel:
+			log.Info("令牌桶放行,当前容量:", len(flowChannel))
 			go callOpenAi(callRequest.Word, queue)
-		case <-time.After(10 * time.Second):
+		case <-time.After(1 * time.Millisecond):
 			log.Info("服务器繁忙!")
 			c.JSON(http.StatusGatewayTimeout, gin.H{"msg": "服务器繁忙"})
+			return
 		}
 		select {
 		case result := <-queue:
 			log.Info("Ai响应为:", result)
 			c.JSON(http.StatusOK, gin.H{"msg": result})
-		case <-time.After(10 * time.Second):
+		case <-time.After(30 * time.Second):
 			log.Info("请求超时!")
 			c.JSON(http.StatusGatewayTimeout, gin.H{"msg": "服务响应超时"})
 		}
