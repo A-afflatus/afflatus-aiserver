@@ -9,6 +9,7 @@ import (
 	conf "chatAi/config"
 	"net/http"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/sashabaranov/go-openai"
 	log "github.com/sirupsen/logrus"
@@ -34,7 +35,21 @@ type CallRequest struct {
 func main() {
 
 	r := gin.Default()
+	//日志
 	r.Use(conf.LoggerToFile())
+	//跨域
+	r.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"*"},
+		AllowMethods:     []string{"PUT", "PATCH", "POST", "GET", "OPTIONS"},
+		AllowHeaders:     []string{"Origin"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		AllowOriginFunc: func(origin string) bool {
+			return true
+		},
+		MaxAge: 30 * time.Minute,
+	}))
+
 	r.POST("/call", func(c *gin.Context) {
 		//请求校验
 		var callRequest CallRequest
