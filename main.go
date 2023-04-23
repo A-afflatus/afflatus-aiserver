@@ -103,7 +103,7 @@ func callOpenAi(word string, done chan string) {
 	resp, err := client.CreateChatCompletion(
 		context.Background(),
 		openai.ChatCompletionRequest{
-			MaxTokens: 1000,
+			MaxTokens: 4000,
 			Model:     "gpt-3.5-turbo",
 			Messages: []openai.ChatCompletionMessage{
 				{
