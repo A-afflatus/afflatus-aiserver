@@ -16,8 +16,9 @@ import (
 )
 
 var (
-	client    *openai.Client
-	openaikey string
+	client      *openai.Client
+	openaikey   string
+	flowChannel = make(chan byte, 10)
 )
 
 func init() {
@@ -49,7 +50,15 @@ func main() {
 		},
 		MaxAge: 30 * time.Minute,
 	}))
-
+	go func() {
+		tick := time.Tick(10 * time.Second)
+		for {
+			select {
+			case <-tick:
+				flowChannel <- 1
+			}
+		}
+	}()
 	r.POST("/call", func(c *gin.Context) {
 		//请求校验
 		var callRequest CallRequest
@@ -66,7 +75,13 @@ func main() {
 		log.Info("请求入参为:", callRequest.Word)
 		//调用ai
 		queue := make(chan string)
-		go callOpenAi("你好", queue)
+		select {
+		case <-flowChannel:
+			go callOpenAi("你好", queue)
+		case <-time.After(10 * time.Second):
+			log.Info("服务器繁忙!")
+			c.JSON(http.StatusGatewayTimeout, gin.H{"msg": "服务器繁忙"})
+		}
 		select {
 		case result := <-queue:
 			log.Info("Ai响应为:", result)
