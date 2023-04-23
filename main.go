@@ -77,7 +77,7 @@ func main() {
 		queue := make(chan string)
 		select {
 		case <-flowChannel:
-			go callOpenAi("你好", queue)
+			go callOpenAi(callRequest.Word, queue)
 		case <-time.After(10 * time.Second):
 			log.Info("服务器繁忙!")
 			c.JSON(http.StatusGatewayTimeout, gin.H{"msg": "服务器繁忙"})
