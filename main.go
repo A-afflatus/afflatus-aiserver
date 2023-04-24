@@ -17,9 +17,9 @@ import (
 )
 
 type Worker struct {
-	workerId      int
-	workerChannel *openai.Client
-	M             sync.Mutex
+	workerId int
+	client   *openai.Client
+	M        sync.Mutex
 }
 
 var (
@@ -39,7 +39,7 @@ func init() {
 	log.Info("openaikey:", openaikey)
 	//池子容量
 	for i := 0; i < poolCount; i++ {
-		clientPool = append(clientPool, Worker{workerId: i, workerChannel: openai.NewClient(openaikey)})
+		clientPool = append(clientPool, Worker{workerId: i, client: openai.NewClient(openaikey)})
 		log.Info("初始化openai客户端池ID:", i)
 	}
 	//循环填充池
@@ -124,12 +124,12 @@ func main() {
 }
 
 func callOpenAi(word string, done chan<- string) {
-	client := <-workerChannel
-	if !client.M.TryLock() {
+	worker := <-workerChannel
+	if !worker.M.TryLock() {
 		done <- "连接池繁忙请稍后再试!"
 	}
-	log.Infof("当前使用的客户端ID为【%d】", client.workerId)
-	resp, err := client.workerChannel.CreateChatCompletion(
+	log.Infof("当前使用的客户端ID为【%d】", worker.workerId)
+	resp, err := worker.client.CreateChatCompletion(
 		context.Background(),
 		openai.ChatCompletionRequest{
 			MaxTokens: 4000,
@@ -142,7 +142,7 @@ func callOpenAi(word string, done chan<- string) {
 			},
 		},
 	)
-	client.M.Unlock()
+	worker.M.Unlock()
 	if err != nil {
 		fmt.Printf("ChatCompletion error: %v\n", err)
 		done <- "AI服务繁忙请稍后再试!"
