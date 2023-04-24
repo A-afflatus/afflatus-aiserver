@@ -16,6 +16,7 @@ import (
 )
 
 var (
+	//todo 链接池化
 	client      *openai.Client
 	openaikey   string
 	flowChannel = make(chan byte, 10)
@@ -56,7 +57,6 @@ func main() {
 			select {
 			case <-tick:
 				flowChannel <- 1
-				log.Info("令牌桶已放行,当前容量:", len(flowChannel))
 			}
 		}
 	}()
@@ -79,10 +79,10 @@ func main() {
 		select {
 		case <-flowChannel:
 			log.Info("令牌桶放行,当前容量:", len(flowChannel))
-			go callOpenAi(callRequest.Word, queue)
+			go callOpenAi(callRequest.Word+"用markdown回复,并且在代码块表达式中指定代码的语言类型", queue)
 		case <-time.After(1 * time.Millisecond):
 			log.Info("服务器繁忙!")
-			c.JSON(http.StatusGatewayTimeout, gin.H{"msg": "服务器繁忙"})
+			c.JSON(http.StatusGatewayTimeout, gin.H{"msg": "服务器繁忙!"})
 			return
 		}
 		select {
@@ -102,6 +102,7 @@ func callOpenAi(word string, done chan string) {
 	//发送请求
 	resp, err := client.CreateChatCompletion(
 		context.Background(),
+		//todo 负载均衡 记住之前的对话内容
 		openai.ChatCompletionRequest{
 			MaxTokens: 4000,
 			Model:     "gpt-3.5-turbo",
