@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"sync"
 	"time"
 
 	conf "chatAi/config"
@@ -15,19 +16,40 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+type Worker struct {
+	workerId      int
+	workerChannel *openai.Client
+	M             sync.Mutex
+}
+
 var (
 	//todo 链接池化
-	client      *openai.Client
-	openaikey   string
-	flowChannel = make(chan byte, 10)
+	clientPool    []Worker
+	openaikey     string
+	tokenCapacity = 10
+	poolCount     = 5
+	flowChannel   = make(chan byte, tokenCapacity)
+
+	workerChannel = make(chan Worker, poolCount)
 )
 
 func init() {
 	flag.StringVar(&openaikey, "key", "", "openaikey")
 	flag.Parse()
 	log.Info("openaikey:", openaikey)
-
-	client = openai.NewClient(openaikey)
+	//池子容量
+	for i := 0; i < poolCount; i++ {
+		clientPool = append(clientPool, Worker{workerId: i, workerChannel: openai.NewClient(openaikey)})
+		log.Info("初始化openai客户端池ID:", i)
+	}
+	//循环填充池
+	go func() {
+		for {
+			for _, v := range clientPool {
+				workerChannel <- v
+			}
+		}
+	}()
 }
 
 type CallRequest struct {
@@ -52,6 +74,9 @@ func main() {
 		MaxAge: 30 * time.Minute,
 	}))
 	go func() {
+		for i := 0; i < tokenCapacity; i++ {
+			flowChannel <- 1
+		}
 		tick := time.Tick(5 * time.Second)
 		for {
 			select {
@@ -65,12 +90,12 @@ func main() {
 		var callRequest CallRequest
 		if err := c.ShouldBind(&callRequest); err != nil {
 			log.Info("入参校验不通过为:", err)
-			c.JSON(http.StatusBadRequest, gin.H{"msg": "参数错误"})
+			c.JSON(http.StatusBadRequest, gin.H{"msg": "参数错误!"})
 			return
 		}
-		if size := len(callRequest.Word); size >= 1000 {
+		if size := len(callRequest.Word); size >= 400 {
 			log.Info("请求体过长:", size)
-			c.JSON(http.StatusBadRequest, gin.H{"msg": "请求信息过长"})
+			c.JSON(http.StatusBadRequest, gin.H{"msg": "请求信息过长!"})
 			return
 		}
 		log.Info("请求入参为:", callRequest.Word)
@@ -91,18 +116,21 @@ func main() {
 			c.JSON(http.StatusOK, gin.H{"msg": result})
 		case <-time.After(30 * time.Second):
 			log.Info("请求超时!")
-			c.JSON(http.StatusGatewayTimeout, gin.H{"msg": "服务响应超时"})
+			c.JSON(http.StatusGatewayTimeout, gin.H{"msg": "服务响应超时!"})
 		}
 	})
 	r.Run(":9969")
 
 }
 
-func callOpenAi(word string, done chan string) {
-	//发送请求
-	resp, err := client.CreateChatCompletion(
+func callOpenAi(word string, done chan<- string) {
+	client := <-workerChannel
+	if !client.M.TryLock() {
+		done <- "连接池繁忙请稍后再试!"
+	}
+	log.Infof("当前使用的客户端ID为【%d】", client.workerId)
+	resp, err := client.workerChannel.CreateChatCompletion(
 		context.Background(),
-		//todo 负载均衡 记住之前的对话内容
 		openai.ChatCompletionRequest{
 			MaxTokens: 4000,
 			Model:     "gpt-3.5-turbo",
@@ -114,10 +142,12 @@ func callOpenAi(word string, done chan string) {
 			},
 		},
 	)
+	client.M.Unlock()
 	if err != nil {
 		fmt.Printf("ChatCompletion error: %v\n", err)
-		done <- "服务繁忙请稍后再试"
+		done <- "AI服务繁忙请稍后再试!"
 		return
 	}
 	done <- resp.Choices[0].Message.Content
+
 }
