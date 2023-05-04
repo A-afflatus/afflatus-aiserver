@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"sync"
 	"time"
 
@@ -77,7 +76,7 @@ func main() {
 		for i := 0; i < tokenCapacity; i++ {
 			flowChannel <- 1
 		}
-		tick := time.Tick(5 * time.Second)
+		tick := time.Tick(10 * time.Second)
 		for {
 			select {
 			case <-tick:
@@ -133,7 +132,7 @@ func callOpenAi(word string, done chan<- string) {
 		context.Background(),
 		openai.ChatCompletionRequest{
 			MaxTokens: 4000,
-			Model:     "gpt-3.5-turbo",
+			Model:     openai.GPT3Dot5Turbo,
 			Messages: []openai.ChatCompletionMessage{
 				{
 					Role:    "user",
@@ -144,7 +143,7 @@ func callOpenAi(word string, done chan<- string) {
 	)
 	worker.M.Unlock()
 	if err != nil {
-		fmt.Printf("ChatCompletion error: %v\n", err)
+		log.Error("openai调用失败,响应信息为%v", err)
 		done <- "AI服务繁忙请稍后再试!"
 		return
 	}
