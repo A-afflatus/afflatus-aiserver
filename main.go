@@ -103,7 +103,8 @@ func main() {
 		select {
 		case <-flowChannel:
 			log.Info("令牌桶放行,当前容量:", len(flowChannel))
-			go callOpenAi(callRequest.Word+"(用markdown回复,如果内容有代码在代码块表达式中指定代码的语言类型)", queue)
+			//,如果内容有代码在代码块表达式中指定代码的语言类型
+			go callOpenAi(callRequest.Word+"(用markdown回复)", queue)
 		case <-time.After(1 * time.Millisecond):
 			log.Info("服务器繁忙!")
 			c.JSON(http.StatusGatewayTimeout, gin.H{"msg": "服务器繁忙!"})
