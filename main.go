@@ -144,8 +144,8 @@ func callOpenAi(word string, done chan<- string) {
 	worker.M.Unlock()
 	if err != nil {
 		log.Error("openai调用失败,响应信息为%v", err)
-		// done <- "AI服务繁忙请稍后再试!"
-		done <- "站主余额不足,待充值后开放!"
+		done <- "AI服务繁忙请稍后再试!"
+		// done <- "站主余额不足,待充值后开放!"
 		return
 	}
 	done <- resp.Choices[0].Message.Content
