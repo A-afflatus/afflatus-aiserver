@@ -9,7 +9,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func init() {
+func Logger() {
 	// 设置日志格式为json格式
 	log.SetFormatter(&log.JSONFormatter{})
 
