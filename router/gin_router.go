@@ -17,5 +17,6 @@ func Router(rootGroup *gin.Engine) {
 // openai_router
 func openai(rootGroup *gin.Engine) {
 	openaiGroup := rootGroup.Group("/openai")
-	openaiGroup.POST("/call", server.RegisterHttp)
+	openaiGroup.POST("/call", server.CallHttp)
+	openaiGroup.GET("/callRecord", server.CallRecordHttp)
 }
